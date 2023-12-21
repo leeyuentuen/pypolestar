@@ -21,3 +21,15 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pypi_token: ${{ secrets.PYPI_TOKEN }}
+
+  pypi-publish:
+      name: upload release to PyPI
+      runs-on: ubuntu-latest
+      # Specifying a GitHub environment is optional, but strongly encouraged
+      environment: release
+      steps:
+        - name: pypi-publish
+          uses: pypa/gh-action-pypi-publish@v1.5.0
+          with:
+            user: __token__
+            password: ${{ secrets.PYPI_API_TOKEN }}

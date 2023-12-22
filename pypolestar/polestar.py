@@ -33,6 +33,8 @@ class PolestarApi:
 
         self.cache_data[CAR_INFO_DATA] = {
             'data': result['data'][CAR_INFO_DATA][0], 'timestamp': datetime.now()}
+        
+        return result
 
     def get_latest_data(self, query: str, field_name: str) -> dict or bool or None:
         if self.cache_data and self.cache_data[query]:

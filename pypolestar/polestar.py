@@ -1,12 +1,9 @@
-from datetime import datetime, timedelta
 import logging
+import httpx
 
-import aiohttp
-
-from config.custom_components.polestar_api.pypolestar.const import BATTERY_DATA, CAR_INFO_DATA, ODO_METER_DATA
-
+from datetime import datetime, timedelta
 from .auth import PolestarAuth
-from config.custom_components.polestar_api.const import CACHE_TIME
+from .const import CACHE_TIME, BATTERY_DATA, CAR_INFO_DATA, ODO_METER_DATA
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +15,7 @@ class PolestarApi:
         self.updating = False
         self.cache_data = {}
         self.latest_call_code = None
-        self.session = aiohttp.ClientSession()
+        self._client_session = httpx.AsyncClient()
 
     async def init(self):
         await self.auth.get_token()
@@ -124,14 +121,14 @@ class PolestarApi:
             "authorization": "Bearer " + self.auth.access_token
         }
 
-        result = await self.session.get("https://pc-api.polestar.com/eu-north-1/my-star/", params=params, headers=headers)
-        self.latest_call_code = result.status
-        resultData = await result.json()
+        result = await self._client_session.get("https://pc-api.polestar.com/eu-north-1/my-star/", params=params, headers=headers)
+        self.latest_call_code = result.status_code
+        resultData = result.json()
 
         # if auth error, get new token
         if resultData.get('errors'):
             if resultData['errors'][0]['message'] == 'User not authenticated':
-                await self.auth.get_token()()
+                await self.auth.get_token()
                 resultData = await self.get_graph_ql(params)
             else:
                 # log the error

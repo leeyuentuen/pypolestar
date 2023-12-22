@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pypolestar"
-version = "1.1.0"
+version = "1.1.1"
 description = "Library to control Polestar"
 authors = ["Tuen Lee <leeyuentuen@gmail.com>"]
 license = "MIT"
@@ -17,7 +17,7 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.8"
 asyncio = "^3.4.3"
-aiohttp = "^3.7.4.post0"
+httpx = "^0.18.2"
 
 [tool.semantic_release]
 branch = "main"

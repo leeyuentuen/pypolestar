@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta
 import logging
 import json
-from urllib.parse import parse_qs, urlparse
-import aiohttp
+import httpx
+
+from datetime import datetime, timedelta
+
 
 from .exceptions import PolestarAuthException
 
@@ -12,14 +13,14 @@ _LOGGER = logging.getLogger(__name__)
 class PolestarAuth:
     """ base class for Polestar authentication"""
 
-    def __init__(self, username: str, password: str) -> None:
+    def __init__(self, client: httpx.AsyncClient | None = None, username: str | None = None, password: str | None = None) -> None:
         self.username = username
         self.password = password
         self.access_token = None
         self.refresh_token = None
         self.token_expiry = None
         self.latest_call_code = None
-        self.session = aiohttp.ClientSession()
+        self._client_session = client or httpx.AsyncClient()
 
     async def get_token(self) -> None:
         code = await self._get_code()
@@ -36,13 +37,12 @@ class PolestarAuth:
         headers = {
             "Content-Type": "application/json"
         }
-        result = await self.session.get("https://pc-api.polestar.com/eu-north-1/auth/", params=params, headers=headers)
-        self.latest_call_code = result.status
-        if result.status != 200:
+        result = await self._client_session.get("https://pc-api.polestar.com/eu-north-1/auth/", params=params, headers=headers)
+        self.latest_call_code = result.status_code
+        if result.status_code != 200:
             _LOGGER.error(f"Error getting token {result.status}")
             raise PolestarAuthException(f"Error getting token")
-        
-        resultData = await result.json()
+        resultData = result.json()
         _LOGGER.debug(resultData)
 
         if resultData['data']:
@@ -55,9 +55,7 @@ class PolestarAuth:
         _LOGGER.debug(f"Response {self.access_token}")
 
     async def _get_code(self) -> None:
-        resumePath = await self._get_resume_path()
-        parsed_url = urlparse(resumePath)
-        query_params = parse_qs(parsed_url.query)
+        query_params = await self._get_resume_path()
 
         # check if code is in query_params
         if query_params.get('code'):
@@ -65,7 +63,7 @@ class PolestarAuth:
 
         # get the resumePath
         if query_params.get('resumePath'):
-            resumePath = query_params.get(('resumePath'))[0]
+            resumePath = query_params.get(('resumePath'))
 
         if resumePath is None:
             return
@@ -77,38 +75,30 @@ class PolestarAuth:
             'pf.username': self.username,
             'pf.pass': self.password
         }
-        result = await self.session.post(
+        result = await self._client_session.post(
             f"https://polestarid.eu.polestar.com/as/{resumePath}/resume/as/authorization.ping",
             params=params,
             data=data
         )
-        self.latest_call_code = result.status
-        if result.status != 200:
-            _LOGGER.error(f"Error getting code {result.status}")
+        self.latest_call_code = result.status_code
+        if result.status_code != 302:
+            _LOGGER.error(f"Error getting code {result.status_code}")
             raise PolestarAuthException(f"Error getting authorization code")
-        
+
         # get the realUrl
         url = result.url
-
-        parsed_url = urlparse(result.real_url.raw_path_qs)
-        query_params = parse_qs(parsed_url.query)
-
-        if not query_params.get('code'):
-            _LOGGER.error(f"Error getting code in {query_params}. Check if {self.username} password is correct")
-            raise PolestarAuthException(f"Error getting authorization code")
-
-        code = query_params.get(('code'))[0]
+        code = result.next_request.url.params.get('code')
 
         # sign-in-callback
-        result = await self.session.get("https://www.polestar.com/sign-in-callback?code=" + code)
-        self.latest_call_code = result.status
-        if result.status != 200:
-            _LOGGER.error(f"Error getting code callback {result.status}")
+        result = await self._client_session.get(result.next_request.url)
+        self.latest_call_code = result.status_code
+
+        if result.status_code != 200:
+            _LOGGER.error(f"Error getting code callback {result.status_code}")
             raise PolestarAuthException(f"Error getting sign-in callback code")
-        
         # url encode the code
-        result = await self.session.get(url)
-        self.latest_call_code = result.status
+        result = await self._client_session.get(url)
+        self.latest_call_code = result.status_code
 
         return code
 
@@ -119,8 +109,9 @@ class PolestarAuth:
             "client_id": "polmystar",
             "redirect_uri": "https://www.polestar.com/sign-in-callback"
         }
-        result = await self.session.get("https://polestarid.eu.polestar.com/as/authorization.oauth2", params=params)
-        if result.status != 200:
-            _LOGGER.error(f"Error getting resume path {result.status}")
-            return
-        return result.real_url.raw_path_qs
+        result = await self._client_session.get("https://polestarid.eu.polestar.com/as/authorization.oauth2", params=params)
+        if result.status_code != 303:
+            _LOGGER.error(f"Error getting resume path {result.status_code}")
+            raise PolestarAuthException(f"Error getting resume_path")
+        
+        return result.next_request.url.params

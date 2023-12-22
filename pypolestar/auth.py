@@ -4,6 +4,8 @@ import json
 from urllib.parse import parse_qs, urlparse
 import aiohttp
 
+from .exceptions import PolestarAuthException
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -38,7 +40,8 @@ class PolestarAuth:
         self.latest_call_code = result.status
         if result.status != 200:
             _LOGGER.error(f"Error getting token {result.status}")
-            return
+            raise PolestarAuthException(f"Error getting token")
+        
         resultData = await result.json()
         _LOGGER.debug(resultData)
 
@@ -82,7 +85,8 @@ class PolestarAuth:
         self.latest_call_code = result.status
         if result.status != 200:
             _LOGGER.error(f"Error getting code {result.status}")
-            return
+            raise PolestarAuthException(f"Error getting authorization code")
+        
         # get the realUrl
         url = result.url
 
@@ -90,9 +94,8 @@ class PolestarAuth:
         query_params = parse_qs(parsed_url.query)
 
         if not query_params.get('code'):
-            _LOGGER.error(f"Error getting code in {query_params}")
-            _LOGGER.warning("Check if username and password are correct")
-            return
+            _LOGGER.error(f"Error getting code in {query_params}. Check if {self.username} password is correct")
+            raise PolestarAuthException(f"Error getting authorization code")
 
         code = query_params.get(('code'))[0]
 
@@ -101,7 +104,8 @@ class PolestarAuth:
         self.latest_call_code = result.status
         if result.status != 200:
             _LOGGER.error(f"Error getting code callback {result.status}")
-            return
+            raise PolestarAuthException(f"Error getting sign-in callback code")
+        
         # url encode the code
         result = await self.session.get(url)
         self.latest_call_code = result.status

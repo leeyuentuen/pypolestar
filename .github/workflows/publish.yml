@@ -31,9 +31,6 @@ jobs:
         - name: build
           run: |
             python -m pip install --upgrade pip
-            ls
-            cd ../../
-            ls
             pip install poetry
             poetry build
         - name: pypi-publish

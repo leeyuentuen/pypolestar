@@ -6,8 +6,8 @@ authors = ["Tuen Lee <leeyuentuen@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/leeyuentuen/pypolestar"
-packages = [
-    { include = "pypolestar", from = "src" },
+packages = [ 
+    { "include" = "pypolestar" }
 ]
 
 [tool.poetry.urls]
@@ -22,7 +22,7 @@ aiohttp = "^3.7.4.post0"
 [tool.semantic_release]
 branch = "main"
 version_tool = "pyproject.toml:tool.poetry.version"
-version_variable = "src/pypolestar/__init__.py:__version__"
+version_variable = "pypolestar/__init__.py:__version__"
 build_command = "pip install poetry && poetry build"
 
 [tools.isort]

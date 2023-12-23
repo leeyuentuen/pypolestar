@@ -10,12 +10,12 @@ _LOGGER = logging.getLogger(__name__)
 
 class PolestarApi:
 
-    def __init__(self, username: str, password: str) -> None:
-        self.auth = PolestarAuth(username, password)
+    def __init__(self, client: httpx.AsyncClient | None = None, username: str | None = None, password: str | None = None) -> None:
+        self.auth = PolestarAuth(client, username, password)
         self.updating = False
         self.cache_data = {}
         self.latest_call_code = None
-        self._client_session = httpx.AsyncClient()
+        self._client_session = client or httpx.AsyncClient()
 
     async def init(self):
         await self.auth.get_token()
@@ -33,6 +33,8 @@ class PolestarApi:
 
         self.cache_data[CAR_INFO_DATA] = {
             'data': result['data'][CAR_INFO_DATA][0], 'timestamp': datetime.now()}
+        
+        return result
 
     def get_latest_data(self, query: str, field_name: str) -> dict or bool or None:
         if self.cache_data and self.cache_data[query]:
